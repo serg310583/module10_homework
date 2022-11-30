@@ -1,0 +1,172 @@
+<!-- 1. Реализовать чат на основе эхо-сервера wss://echo-ws-service.herokuapp.com.
+Интерфейс состоит из input, куда вводится текст сообщения, и кнопки «Отправить».
+
+При клике на кнопку «Отправить» сообщение должно появляться в окне переписки.
+
+Эхо-сервер будет отвечать вам тем же сообщением, его также необходимо выводить в чат: -->
+<!-- 2. Добавить в чат механизм отправки гео-локации:
+При клике на кнопку «Гео-локация» необходимо отправить данные серверу и в чат вывести ссылку на https://www.openstreetmap.org/ с вашей гео-локацией. Сообщение, которое отправит обратно эхо-сервер, не выводить. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Задание 3</title>
+    <style>
+        #chat {
+        width: 500px;
+        margin: 15px auto;
+        padding: 20px;
+        }
+
+        .info_output {
+        color: grey;
+        font-style: italic;
+        }
+
+        .chat_output {
+        margin: 20px 0;
+        border: 1px solid grey;
+        padding: 10px;
+        height: 150px;
+        background-color: #f0ffe0;
+        overflow-y: scroll;
+        position: relative;
+        display: flex;
+        flex-wrap: nowrap;
+        flex-direction: column;
+        }
+
+        .chat_output > div {
+        max-width: 80%;
+        padding: 5px 10px;
+        margin: 5px 0;
+        border-radius: 3px;
+        color: #fff;
+        }
+
+        .chat_output .recieved {
+        background: #1010e8;
+        align-self: flex-start;
+        }
+        .chat_output .sent {
+        background: #14cb14;
+        align-self: flex-end;
+        }
+        .chat_input input {
+        padding: 8px 15px;    
+        }       
+
+        .btn_send, .btn_geo {
+        
+        position: relative;
+        display: inline-block;
+        width: 10em;
+        height: 2.5em;
+        line-height: 2.5em;
+        vertical-align: middle;
+        text-align: center;
+        text-decoration: none;
+        text-shadow: 0 -1px 1px #777;
+        color: #fff;
+        outline: none;
+        border: 2px solid #F64C2B;
+        border-radius: 5px;
+        box-shadow: 0 0 0 60px rgba(0,0,0,0) inset, .1em .1em .2em #800;
+        background: linear-gradient(#FB9575, #F45A38 48%, #EA1502 52%, #F02F17);
+        }
+        .btn_send:active, .btn_geo:active {
+        top: .1em;
+        left: .1em;
+        box-shadow: 0 0 0 60px rgba(0,0,0,.05) inset;
+        }
+        a {
+            text-decoration: none;
+            color: #0f7afc;
+            border-bottom: 1px solid;
+            border-bottom-color: rgba(15, 122, 252, 0.2);            
+        }
+        a:hover {
+            text-decoration: none;
+            color: #cf0000;
+            border-bottom-color: rgba(208, 64, 0, 0.2)
+        }
+    </style>
+</head>
+<body>
+    <main id="chat">
+        <div class="info_output"></div>
+        <div class="chat_output"></div>
+        <div class="chat_input">
+          <input class="input_text" type="text" placeholder="Введите сообщение" />
+          <button class="btn_send">Отправить</button>
+          <button class="btn_geo">Гео-локация</button>
+        </div>
+      </main>
+      <script>
+        const wsUrl = "wss://echo-ws-service.herokuapp.com";
+        const geoUrl = "https://www.openstreetmap.org/"
+
+        function pageLoaded() {
+            const infoOutput = document.querySelector(".info_output");
+            const chatOutput = document.querySelector(".chat_output");
+            const input = document.querySelector("input");
+            const sendBtn = document.querySelector(".btn_send");
+            const sendGeo = document.querySelector(".btn_geo");
+            
+            let socket = new WebSocket(wsUrl);
+            
+            socket.onopen = () => {
+                infoOutput.innerText = "Соединение установлено";
+            }
+            socket.onmessage = (event) => {
+                writeToChat(event.data, true);
+            }
+            
+            socket.onerror = () => {
+                infoOutput.innerText = "При передаче данных произошла ошибка";
+            }
+
+            sendBtn.addEventListener("click", sendMessage);
+
+            function sendMessage() {
+                if (!input.value) return;   // input.value === "" Если строка не пустая
+                socket.send(input.value);   //передаем введенное значение
+                writeToChat(input.value, false); //Что-бы пользователь в чате тоже видел (false - значит отправленное)
+                input.value === ""; //очищаем input
+            }
+
+            function writeToChat(message, isRecieved) {
+                
+                let messageHTML = `<div class="${isRecieved? "recieved" : "sent"}">${message}</div>`;
+                chatOutput.innerHTML += messageHTML; // += - что-бы сообщения добавлялись, а не заменялись
+            }
+
+            sendGeo.addEventListener("click", getLocation);
+  
+            function getLocation() {
+                if ("geolocation" in navigator) {
+                let locationOptions = {
+                enableHighAccuracy: true
+                };
+                navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
+                } else {
+                writeToChat("Браузер не поддерживает функцию определения местоположения");
+                }
+            
+            function locationSuccess(data) { 
+                let link = `https://www.openstreetmap.org/#map=14/${data.coords.latitude}/${data.coords.longitude}`                             
+                writeToChat(`<a href="${link}" target="_blank">Я нахожусь здесь</a>`);
+            }
+
+            function locationError() {
+                writeToChat("При получении местоположения произошла ошибка");  
+            }
+        }            
+        }
+        document.addEventListener('DOMContentLoaded', pageLoaded) // чат заработает как страница загрузится
+      </script> 
+</body>
+</html>
